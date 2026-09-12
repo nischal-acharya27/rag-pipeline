@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment variables
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data (keep sample/, ignore large datasets)
+data/*
+!data/sample/
+!data/.gitkeep
+
+# Model cache
+models/
+*.bin
+*.pt
+*.onnx
+
+# ChromaDB local storage
+chroma_db/
