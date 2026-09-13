@@ -1,0 +1,178 @@
+ACME Engineering Wiki
+Last Updated: March 2026
+
+=== Development Environment Setup ===
+
+All engineers should use the following tools and versions:
+- Python 3.11 or higher
+- Node.js 20 LTS
+- Docker Desktop 4.x
+- PostgreSQL 16
+- Redis 7.x
+
+To set up your local development environment, clone the main repository and run the bootstrap script:
+
+    git clone git@github.com:acme-corp/platform.git
+    cd platform
+    ./scripts/bootstrap.sh
+
+The bootstrap script will install all required dependencies, set up local databases, and configure environment variables. It typically takes 10-15 minutes to complete on first run.
+
+=== Code Review Process ===
+
+All code changes must go through a pull request review before merging. The review process works as follows:
+
+1. Create a feature branch from the main branch
+2. Make your changes and write tests
+3. Open a pull request with a clear description of the changes
+4. Request reviews from at least two team members
+5. Address all review comments
+6. Ensure all CI checks pass (tests, linting, type checking)
+7. Obtain at least two approvals
+8. Squash merge into the main branch
+
+Code reviews should be completed within one business day of being requested. If a review is blocking a time-sensitive change, escalate to the team lead.
+
+Review priorities:
+- Correctness: Does the code do what it claims?
+- Security: Are there any vulnerabilities?
+- Performance: Will this scale with our traffic?
+- Readability: Can another engineer understand this code in 6 months?
+- Testing: Are edge cases covered?
+
+=== Deployment Process ===
+
+We use continuous deployment to production. The deployment pipeline consists of three stages:
+
+Stage 1: Build and Test
+- All tests must pass (unit, integration, and end-to-end)
+- Code coverage must not decrease
+- Docker image is built and tagged with the commit SHA
+
+Stage 2: Staging Deployment
+- The new version is deployed to the staging environment
+- Automated smoke tests run against staging
+- Engineers can manually verify changes in staging
+
+Stage 3: Production Deployment
+- Canary deployment: 5% of traffic is routed to the new version
+- Monitoring dashboards are checked for anomalies (error rate, latency, CPU/memory)
+- If metrics look good after 15 minutes, traffic is gradually increased to 100%
+- If metrics degrade, automatic rollback is triggered
+
+To trigger a deployment, merge your PR to the main branch. The CI/CD pipeline handles everything automatically.
+
+Rollback procedure: If a production issue is detected, any engineer can trigger a rollback by running:
+
+    ./scripts/rollback.sh --to-version <previous-sha>
+
+This will immediately route all traffic back to the previous version. After rolling back, open an incident report in the #incidents Slack channel.
+
+=== API Design Guidelines ===
+
+All new APIs should follow our REST API standards:
+
+URL Structure:
+- Use plural nouns for resources: /api/v2/users, /api/v2/orders
+- Use path parameters for resource identifiers: /api/v2/users/{userId}
+- Use query parameters for filtering and pagination: /api/v2/users?role=admin&limit=50
+- Use lowercase with hyphens for multi-word paths: /api/v2/user-preferences
+
+HTTP Methods:
+- GET: Retrieve resources (must be idempotent)
+- POST: Create new resources
+- PUT: Replace an entire resource
+- PATCH: Partially update a resource
+- DELETE: Remove a resource
+
+Response Format:
+All API responses should use the standard envelope format:
+
+    {
+        "data": { ... },
+        "meta": {
+            "requestId": "uuid",
+            "timestamp": "ISO-8601"
+        },
+        "pagination": {
+            "page": 1,
+            "pageSize": 50,
+            "totalItems": 1234,
+            "totalPages": 25
+        }
+    }
+
+Error responses should include an error code, message, and optional details:
+
+    {
+        "error": {
+            "code": "VALIDATION_ERROR",
+            "message": "Invalid email format",
+            "details": [
+                {"field": "email", "message": "Must be a valid email address"}
+            ]
+        }
+    }
+
+Rate Limiting:
+- Public APIs: 100 requests per minute per API key
+- Internal APIs: 1000 requests per minute per service
+- Rate limit headers (X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset) must be included in all responses
+
+=== Database Conventions ===
+
+Table Naming:
+- Use snake_case for table and column names
+- Use plural nouns for table names: users, orders, line_items
+- Always include id (UUID), created_at, and updated_at columns
+
+Migrations:
+- All schema changes must be done through migrations
+- Migrations must be reversible (include both up and down operations)
+- Never modify existing migration files after they have been applied
+- Test migrations against a copy of production data before deploying
+
+Indexing:
+- Add indexes for all foreign keys
+- Add indexes for columns frequently used in WHERE clauses
+- Use partial indexes when queries consistently filter by a specific condition
+- Monitor slow query logs weekly and add indexes as needed
+
+=== Monitoring and Alerting ===
+
+We use the following observability stack:
+- Metrics: Prometheus + Grafana
+- Logging: ELK Stack (Elasticsearch, Logstash, Kibana)
+- Tracing: Jaeger
+- Error tracking: Sentry
+- Uptime monitoring: Datadog Synthetics
+
+Key dashboards:
+- API Latency: grafana.internal/d/api-latency
+- Error Rates: grafana.internal/d/error-rates
+- Database Performance: grafana.internal/d/db-perf
+- Infrastructure: grafana.internal/d/infra
+
+Alert escalation policy:
+1. P1 (Service Down): Page oncall engineer immediately, 5-minute response SLA
+2. P2 (Degraded Performance): Slack notification to #oncall, 30-minute response SLA
+3. P3 (Non-Critical): Ticket created automatically, addressed during business hours
+
+=== Security Best Practices ===
+
+Authentication:
+- All APIs must require authentication (JWT tokens via OAuth 2.0)
+- Tokens expire after 1 hour; refresh tokens expire after 30 days
+- Use the shared authentication middleware — never implement auth from scratch
+
+Data Protection:
+- PII (Personally Identifiable Information) must be encrypted at rest
+- Use parameterized queries to prevent SQL injection
+- Validate and sanitize all user input
+- Never log sensitive data (passwords, tokens, SSNs, credit card numbers)
+
+Dependency Management:
+- Run Dependabot scans weekly
+- Critical security vulnerabilities must be patched within 48 hours
+- Pin all dependencies to exact versions in production
+- Review all new dependencies for security and license compliance before adding
